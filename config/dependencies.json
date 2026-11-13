@@ -1,0 +1,16 @@
+{
+  "tools": [
+    {
+      "name": "Ngspice",
+      "executable": "ngspice.exe",
+      "version_args": ["--version"],
+      "required": true
+    },
+    {
+      "name": "KiCad",
+      "executable": "kicad-cli.exe",
+      "version_args": ["version"],
+      "required": true
+    }
+  ]
+}
