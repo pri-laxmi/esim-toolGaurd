@@ -1,15 +1,8 @@
-import json
-import platform
-from pathlib import Path
 
-
-def load_dependencies():
-    config_path = Path("config/dependencies.json")
-
-    with open(config_path, "r") as file:
-        config = json.load(file)
-
-    return config["tools"]
+from core.dependency_checker import (
+    check_all_dependencies,
+    print_dependency_report
+)
 
 
 def main():
@@ -17,17 +10,16 @@ def main():
     print("          eSim ToolGuard v1.0")
     print("=" * 45)
 
-    print(f"Operating System: {platform.system()}")
-    print(f"Python Version: {platform.python_version()}")
+    print("\nInitializing dependency checker...")
 
-    tools = load_dependencies()
+    try:
+        results = check_all_dependencies()
+        print_dependency_report(results)
 
-    print("\nConfigured Dependencies:")
+    except (FileNotFoundError, ValueError) as error:
+        print(f"\nConfiguration Error: {error}")
 
-    for tool in tools:
-        print(f"- {tool['name']} ({tool['executable']})")
-
-    print("\nToolGuard initialized successfully!")
+    print("\nToolGuard execution completed!")
 
 
 if __name__ == "__main__":
