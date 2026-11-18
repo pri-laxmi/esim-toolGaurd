@@ -2,6 +2,7 @@
 import json
 import shutil
 import subprocess
+import os
 from pathlib import Path
 
 
@@ -58,13 +59,34 @@ def get_tool_version(executable, version_args):
         return "Version check failed"
 
 
+def find_executable(tool):
+    """Find a tool in PATH, then in its configured installation directory."""
+
+    executable = tool["executable"]
+    executable_path = shutil.which(executable)
+    if executable_path:
+        return executable_path
+
+    install_dir = tool.get("install_dir")
+    if not install_dir:
+        return None
+
+    # Expand Windows environment variables (and any user-home shorthand).
+    install_path = Path(os.path.expandvars(install_dir)).expanduser()
+    for candidate in (install_path / "bin" / executable,
+                      install_path / executable):
+        if candidate.is_file():
+            return str(candidate.resolve())
+    return None
+
+
 def check_tool(tool):
     """Check whether an individual dependency is installed."""
 
     name = tool["name"]
     executable = tool["executable"]
 
-    executable_path = shutil.which(executable)
+    executable_path = find_executable(tool)
 
     if executable_path is None:
         return {
