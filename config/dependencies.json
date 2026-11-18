@@ -1,16 +1,24 @@
+
 {
   "tools": [
     {
-      "name": "Ngspice",
-      "executable": "ngspice.exe",
-      "version_args": ["--version"],
-      "required": true
+    "name": "Ngspice",
+    "executable": "ngspice.exe",
+    "version_args": ["-v"],
+    "required": true,
+    "installer": "official_archive",
+    "package_id": null,
+   "download_url": "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/47/ngspice-47_64.7z/download",
+   "install_dir": "%LOCALAPPDATA%\\eSimToolGuard\\tools\\ngspice"  
     },
     {
       "name": "KiCad",
       "executable": "kicad-cli.exe",
       "version_args": ["version"],
-      "required": true
+      "required": true,
+      "installer": "winget",
+      "package_id": "KiCad.KiCad"
     }
   ]
 }
+
