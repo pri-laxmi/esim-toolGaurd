@@ -3,8 +3,7 @@
 
 **eSim ToolGuard** is a Python-based command-line application designed to simplify the installation, detection, and management of external tools required by eSim.
 
-Managing external dependencies such as Ngspice and KiCad manually can be tedious. ToolGuard aims to automate this process by providing dependency detection, version compatibility checks, installation workflows, installed-tool tracking, and persistent action logging through a simple CLI.
-
+Managing external dependencies such as Ngspice and KiCad manually can be tedious. ToolGuard aims to automate this process by providing dependency detection, version compatibility checks, installation workflows, installed-tool tracking, and persistent action logging through a simple CLI. 
 ---
 
 ## ✨ Features
