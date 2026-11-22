@@ -1,7 +1,6 @@
 import os
 import urllib.request
 import tempfile
-import py7zr
 
 from pathlib import Path
 import shutil
@@ -77,7 +76,7 @@ def confirm_installation(tool_name):
 
     return choice == "y"
 
-def install_tool(tool):
+def install_tool(tool, confirmed=False):
 
     provider = tool.get("installer")
 
@@ -87,15 +86,23 @@ def install_tool(tool):
         )
 
     elif provider == "official_archive":
-        return install_ngspice(tool)
+        return install_ngspice(tool, confirmed=confirmed)
 
     return {
         "success": False,
         "message": f"Unsupported installer: {provider}"
     }
 
-def install_ngspice(tool):
+def install_ngspice(tool, confirmed=False):
     """Download and extract official Ngspice Windows binaries."""
+
+    try:
+        import py7zr
+    except ImportError:
+        return {
+            "success": False,
+            "message": "The py7zr package is required to install Ngspice."
+        }
 
     if os.name != "nt":
         return {
@@ -122,7 +129,7 @@ def install_ngspice(tool):
             "message": "Installation directory must be absolute."
         }
 
-    if not confirm_installation("Ngspice"):
+    if not confirmed and not confirm_installation("Ngspice"):
         return {
             "success": False,
             "message": "Installation cancelled by user."
