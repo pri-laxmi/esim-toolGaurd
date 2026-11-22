@@ -1,11 +1,50 @@
 import unittest
-from unittest.mock import Mock, patch
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, call, patch
 
 from core import installer
 from main import _install_a_tool
 
 
 class InstallerTests(unittest.TestCase):
+    def test_ngspice_swap_activates_staged_install_and_returns_backup(self):
+        staged = Path("C:/tools/.staged/ngspice")
+        install_dir = Path("C:/tools/ngspice")
+        backup = Path("C:/tools/ngspice.backup-test")
+        with patch.object(installer.uuid, "uuid4", return_value=SimpleNamespace(hex="test")), \
+                patch.object(Path, "exists", return_value=True), \
+                patch.object(Path, "rename", autospec=True) as rename:
+            result = installer._swap_install_directory(staged, install_dir)
+
+        self.assertEqual(result, backup)
+        self.assertEqual(rename.call_args_list, [
+            call(install_dir, backup),
+            call(staged, install_dir),
+        ])
+
+    def test_ngspice_swap_restores_old_install_if_activation_fails(self):
+        staged = Path("C:/tools/.staged/ngspice")
+        install_dir = Path("C:/tools/ngspice")
+        backup = Path("C:/tools/ngspice.backup-test")
+
+        def rename(source, destination):
+            if source == staged:
+                raise OSError("activation failed")
+            return destination
+
+        with patch.object(installer.uuid, "uuid4", return_value=SimpleNamespace(hex="test")), \
+                patch.object(Path, "exists", side_effect=[True, False]), \
+                patch.object(Path, "rename", autospec=True, side_effect=rename) as rename_mock:
+            with self.assertRaisesRegex(OSError, "activation failed"):
+                installer._swap_install_directory(staged, install_dir)
+
+        self.assertEqual(rename_mock.call_args_list, [
+            call(install_dir, backup),
+            call(staged, install_dir),
+            call(backup, install_dir),
+        ])
+
     def test_valid_package_id_runs_winget_command(self):
         completed = Mock(returncode=0, stdout="installed", stderr="")
         with patch.object(installer, "check_winget", return_value=True), \

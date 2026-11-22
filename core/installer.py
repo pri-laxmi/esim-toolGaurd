@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import re
+import uuid
 
 from utils.logger import log_action, log_error
 
@@ -210,9 +211,13 @@ def install_ngspice(tool, confirmed=False):
 
         print("Download completed.")
 
-        # Extract into a temporary staging directory.
+        # Extract beside the target so the final directory rename stays on
+        # the same volume and can be rolled back without copying files.
         staging_dir = Path(
-            tempfile.mkdtemp(prefix="esim_ngspice_")
+            tempfile.mkdtemp(
+                prefix=".esim_ngspice_staging_",
+                dir=str(install_dir.parent),
+            )
         )
 
         print("\nExtracting Ngspice archive...")
@@ -234,33 +239,18 @@ def install_ngspice(tool, confirmed=False):
                 "ngspice.exe was not found in the archive."
             )
 
-        # Find the executable's installation root.
+        # Find and verify the new installation before touching the current one.
         executable = executables[0]
         source_root = executable.parent.parent
-
-        # Move the extracted installation tree into place.
-        if install_dir.exists():
-            shutil.rmtree(install_dir)
-
-        shutil.move(
-            str(source_root),
-            str(install_dir)
-        )
-
-        final_executable = (
-            install_dir /
-            "bin" /
-            "ngspice.exe"
-        )
-
-        if not final_executable.exists():
+        staged_executable = source_root / "bin" / "ngspice.exe"
+        if not staged_executable.is_file():
             raise FileNotFoundError(
-                "Ngspice executable missing after extraction."
+                "Ngspice executable missing from the extracted installation."
             )
 
-        # Verify the installation.
+        # Verify the staged binary before replacing an existing installation.
         result = subprocess.run(
-            [str(final_executable), "-v"],
+            [str(staged_executable), "-v"],
             capture_output=True,
             text=True,
             timeout=15,
@@ -277,10 +267,19 @@ def install_ngspice(tool, confirmed=False):
                 "Ngspice installation verification failed."
             )
 
+        backup_dir = _swap_install_directory(source_root, install_dir)
+        if backup_dir is not None:
+            try:
+                _remove_path(backup_dir)
+            except OSError as error:
+                # The replacement is already verified and active. Keep the
+                # backup if cleanup fails so it can still be recovered.
+                log_error(f"Ngspice installed, but old backup could not be removed: {error}")
+
         return {
             "success": True,
             "message": "Ngspice installed and verified.",
-            "path": str(final_executable),
+            "path": str(install_dir / "bin" / "ngspice.exe"),
             "version": version_output.splitlines()[0]
         }
 
@@ -294,10 +293,50 @@ def install_ngspice(tool, confirmed=False):
     finally:
 
         # Clean up temporary files.
-        try:
-            if archive_path and archive_path.exists():
-                archive_path.unlink()
-            if staging_dir and staging_dir.exists():
-                shutil.rmtree(staging_dir, ignore_errors=True)
-        except OSError as error:
-            log_error(f"Ngspice temporary-file cleanup failed: {error}")
+        if archive_path:
+            try:
+                if archive_path.exists():
+                    archive_path.unlink()
+            except OSError as error:
+                log_error(f"Ngspice archive cleanup failed: {error}")
+        if staging_dir:
+            try:
+                if staging_dir.exists():
+                    _remove_path(staging_dir)
+            except OSError as error:
+                log_error(f"Ngspice staging cleanup failed: {error}")
+
+
+def _swap_install_directory(staged_install, install_dir):
+    """Atomically activate a staged install, restoring the old one on error."""
+    backup_dir = None
+    if install_dir.exists():
+        backup_dir = install_dir.with_name(
+            f"{install_dir.name}.backup-{uuid.uuid4().hex}"
+        )
+        install_dir.rename(backup_dir)
+
+    try:
+        staged_install.rename(install_dir)
+    except OSError as install_error:
+        if backup_dir is not None:
+            try:
+                if install_dir.exists():
+                    _remove_path(install_dir)
+                backup_dir.rename(install_dir)
+            except OSError as rollback_error:
+                raise RuntimeError(
+                    f"Replacement failed and rollback could not complete; "
+                    f"the previous installation remains at {backup_dir}: {rollback_error}"
+                ) from install_error
+        raise
+    return backup_dir
+
+
+def _remove_path(path):
+    """Remove a file, symlink, or directory tree."""
+    if path.is_symlink() or not path.is_dir():
+        if path.exists() or path.is_symlink():
+            path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
