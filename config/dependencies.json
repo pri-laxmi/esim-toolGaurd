@@ -5,6 +5,8 @@
     "name": "Ngspice",
     "executable": "ngspice.exe",
     "version_args": ["-v"],
+    "version_pattern": "ngspice[-\\s]+v?(\\d+(?:\\.\\d+)*)",
+    "version_requirement": {"minimum": "47"},
     "required": true,
     "installer": "official_archive",
     "package_id": null,
@@ -15,6 +17,14 @@
       "name": "KiCad",
       "executable": "kicad-cli.exe",
       "version_args": ["version"],
+      "version_pattern": "(\\d+(?:\\.\\d+)+)",
+      "version_requirement": {"minimum": "7.0"},
+      "registry_display_name": "KiCad",
+      "install_search_roots": [
+        "%ProgramFiles%\\KiCad",
+        "%ProgramFiles(x86)%\\KiCad",
+        "%LOCALAPPDATA%\\Programs\\KiCad"
+      ],
       "required": true,
       "installer": "winget",
       "package_id": "KiCad.KiCad"

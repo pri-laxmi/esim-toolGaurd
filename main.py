@@ -39,7 +39,9 @@ def _install_a_tool():
         detected = {tool["name"]: tool for tool in check_all_dependencies()}
         print("\nAvailable tools:")
         for index, tool in enumerate(tools, start=1):
-            status = " (already installed)" if detected.get(tool["name"], {}).get("installed") else ""
+            current = detected.get(tool["name"], {})
+            is_detected = current.get("detected", current.get("installed", False))
+            status = " (already detected)" if is_detected else ""
             print(f"  {index}. {tool['name']}{status}")
 
         selection = input("Select a tool number (or 0 to cancel): ").strip()
@@ -58,9 +60,12 @@ def _install_a_tool():
             return
 
         tool = tools[choice - 1]
-        if detected.get(tool["name"], {}).get("installed"):
+        current = detected.get(tool["name"], {})
+        if current.get("detected", current.get("installed", False)):
             print(f"{tool['name']} is already detected; skipping reinstallation.")
             log_action(f"Installation skipped; {tool['name']} is already detected.")
+            if not current.get("installed", False):
+                print(f"Detected version status: {current.get('status', 'Version check failed')}.")
             return
 
         confirmation = input(f"Install {tool['name']}? (y/n): ").strip().lower()

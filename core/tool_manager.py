@@ -23,18 +23,20 @@ def display_installed_tools():
             print(f"     Path: {tool['path']}")
         else:
             print(f"\n[!] {tool['name']}")
-            print("     Status: Missing")
+            print(f"     Status: {tool.get('status', 'Missing')}")
             print(f"     Version: {tool['version']}")
-            print("     Path: Not Found")
+            print(f"     Path: {tool.get('path') or 'Not Found'}")
 
     installed_count = sum(tool["installed"] for tool in results)
+    detected_count = sum(tool.get("detected", tool["installed"]) for tool in results)
     total_count = len(results)
     print("\n" + "-" * 45)
     print("SUMMARY")
     print("-" * 45)
     print(f"Total Configured Tools : {total_count}")
-    print(f"Successfully Detected  : {installed_count}")
-    print(f"Missing Tools          : {total_count - installed_count}")
+    print(f"Compatible Tools       : {installed_count}")
+    print(f"Version Incompatible   : {detected_count - installed_count}")
+    print(f"Missing Tools          : {total_count - detected_count}")
     print("-" * 45)
     return results
 

@@ -54,7 +54,7 @@ class ToolManagerTests(unittest.TestCase):
         for expected in (
             "InstalledTool", "Status: Installed", "1.2.3", "C:/tools/installed.exe",
             "MissingTool", "Status: Missing", "Total Configured Tools : 2",
-            "Successfully Detected  : 1", "Missing Tools          : 1",
+            "Compatible Tools       : 1", "Missing Tools          : 1",
         ):
             self.assertIn(expected, report)
 
