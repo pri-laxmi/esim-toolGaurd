@@ -5,18 +5,32 @@ import tempfile
 from pathlib import Path
 import shutil
 import subprocess
+import re
+
+from utils.logger import log_action, log_error
 
 
 def check_winget():
     """Check whether winget is available."""
-
-    return shutil.which("winget") is not None
+    try:
+        return shutil.which("winget") is not None
+    except OSError as error:
+        log_error(f"Unable to check for winget: {error}")
+        return False
 
 
 def install_with_winget(package_id):
     """Install a package using Windows Package Manager."""
 
+    if not isinstance(package_id, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]*", package_id
+    ):
+        message = "Invalid winget package ID."
+        log_error(message)
+        return {"success": False, "message": message}
+
     if not check_winget():
+        log_error("winget installation failed: winget is not installed or unavailable.")
         return {
             "success": False,
             "message": "winget is not installed or unavailable."
@@ -44,23 +58,28 @@ def install_with_winget(package_id):
         )
 
         if result.returncode == 0:
+            log_action(f"winget installation succeeded for {package_id}.")
             return {
                 "success": True,
                 "message": "Installation completed successfully."
             }
 
+        message = result.stderr.strip() or result.stdout.strip() or "winget installation failed."
+        log_error(f"winget installation failed for {package_id}: {message}")
         return {
             "success": False,
-            "message": result.stderr.strip() or result.stdout.strip()
+            "message": message
         }
 
     except subprocess.TimeoutExpired:
+        log_error(f"winget installation timed out for {package_id}.")
         return {
             "success": False,
             "message": "Installation timed out."
         }
 
     except OSError as error:
+        log_error(f"winget installation failed for {package_id}: {error}")
         return {
             "success": False,
             "message": str(error)
@@ -78,20 +97,32 @@ def confirm_installation(tool_name):
 
 def install_tool(tool, confirmed=False):
 
+    if not isinstance(tool, dict):
+        message = "Invalid tool configuration."
+        log_error(message)
+        return {"success": False, "message": message}
+
     provider = tool.get("installer")
+    name = tool.get("name", "Unknown tool")
+    log_action(f"Installation requested for {name}.")
 
     if provider == "winget":
-        return install_with_winget(
-            tool.get("package_id")
-        )
+        result = install_with_winget(tool.get("package_id"))
 
     elif provider == "official_archive":
-        return install_ngspice(tool, confirmed=confirmed)
+        result = install_ngspice(tool, confirmed=confirmed)
 
-    return {
-        "success": False,
-        "message": f"Unsupported installer: {provider}"
-    }
+    else:
+        result = {
+            "success": False,
+            "message": f"Unsupported installer: {provider}"
+        }
+
+    if result.get("success"):
+        log_action(f"Installation completed for {name}.")
+    elif "winget installation" not in result.get("message", "").lower():
+        log_error(f"Installation failed for {name}: {result.get('message', 'Unknown error')}")
+    return result
 
 def install_ngspice(tool, confirmed=False):
     """Download and extract official Ngspice Windows binaries."""
@@ -263,8 +294,10 @@ def install_ngspice(tool, confirmed=False):
     finally:
 
         # Clean up temporary files.
-        if archive_path and archive_path.exists():
-            archive_path.unlink()
-
-        if staging_dir and staging_dir.exists():
-            shutil.rmtree(staging_dir, ignore_errors=True)
+        try:
+            if archive_path and archive_path.exists():
+                archive_path.unlink()
+            if staging_dir and staging_dir.exists():
+                shutil.rmtree(staging_dir, ignore_errors=True)
+        except OSError as error:
+            log_error(f"Ngspice temporary-file cleanup failed: {error}")

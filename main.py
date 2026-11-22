@@ -94,10 +94,10 @@ def _view_installed_tools():
 def _view_logs():
     # Write first so this visit is included in the displayed log history.
     log_action("Action logs viewed.")
-    logs = get_logs()
     print("\n" + "=" * 45)
     print("       eSim ToolGuard - Action Logs")
     print("=" * 45)
+    logs = get_logs()
     if logs.strip():
         print(logs, end="" if logs.endswith("\n") else "\n")
     else:

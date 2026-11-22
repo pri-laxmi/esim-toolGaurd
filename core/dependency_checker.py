@@ -18,7 +18,12 @@ def load_dependencies():
         with open(CONFIG_PATH, "r", encoding="utf-8") as file:
             config = json.load(file)
 
-        return config.get("tools", [])
+        if not isinstance(config, dict):
+            raise ValueError("Invalid dependency configuration: root must be an object.")
+        tools = config.get("tools", [])
+        if not isinstance(tools, list):
+            raise ValueError("Invalid dependency configuration: 'tools' must be a list.")
+        return tools
 
     except FileNotFoundError:
         raise FileNotFoundError(
@@ -29,6 +34,10 @@ def load_dependencies():
         raise ValueError(
             f"Invalid dependency configuration: {error}"
         )
+    except PermissionError as error:
+        raise PermissionError(
+            f"Cannot read dependency configuration: {CONFIG_PATH}"
+        ) from error
 
 
 def get_tool_version(executable, version_args):
@@ -55,15 +64,22 @@ def get_tool_version(executable, version_args):
     except subprocess.TimeoutExpired:
         return "Version check timed out"
 
-    except OSError:
+    except (OSError, ValueError, TypeError):
         return "Version check failed"
 
 
 def find_executable(tool):
     """Find a tool in PATH, then in its configured installation directory."""
 
-    executable = tool["executable"]
-    executable_path = shutil.which(executable)
+    executable = tool.get("executable")
+    if not isinstance(executable, str) or not executable.strip():
+        return None
+
+    executable = executable.strip()
+    try:
+        executable_path = shutil.which(executable)
+    except (OSError, ValueError, TypeError):
+        executable_path = None
     if executable_path:
         return executable_path
 
@@ -72,19 +88,24 @@ def find_executable(tool):
         return None
 
     # Expand Windows environment variables (and any user-home shorthand).
-    install_path = Path(os.path.expandvars(install_dir)).expanduser()
-    for candidate in (install_path / "bin" / executable,
-                      install_path / executable):
-        if candidate.is_file():
-            return str(candidate.resolve())
+    try:
+        install_path = Path(os.path.expandvars(install_dir)).expanduser()
+        for candidate in (install_path / "bin" / executable,
+                          install_path / executable):
+            if candidate.is_file():
+                return str(candidate.resolve())
+    except (OSError, ValueError, TypeError):
+        return None
     return None
 
 
 def check_tool(tool):
     """Check whether an individual dependency is installed."""
 
-    name = tool["name"]
-    executable = tool["executable"]
+    if not isinstance(tool, dict):
+        raise ValueError("Each dependency entry must be a JSON object.")
+
+    name = tool.get("name", "Unknown tool")
 
     executable_path = find_executable(tool)
 
